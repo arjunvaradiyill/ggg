@@ -3,6 +3,7 @@ import Image from "next/image";
 import { useState, useRef } from "react";
 import { useRouter } from 'next/navigation';
 import Head from 'next/head';
+import { authAPI } from './services/api';
 
 // Add proper type definitions at the top
 interface SpeechRecognitionEvent {
@@ -161,8 +162,6 @@ const LoginForm = ({ onForgotPassword }: LoginFormProps) => {
     setError('');
 
     try {
-      // Import the authAPI dynamically to avoid SSR issues
-      const { authAPI } = await import('./services/api');
       const response = await authAPI.login({ username, password });
       
       // Show success message

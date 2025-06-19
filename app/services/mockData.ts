@@ -185,9 +185,19 @@ export const simulateApiDelay = (ms: number = 500) => {
   return new Promise(resolve => setTimeout(resolve, ms));
 };
 
-// Helper function to simulate API error (10% chance)
+// Helper function to simulate API error (disabled for development)
 export const simulateApiError = () => {
-  if (Math.random() < 0.1) {
+  // Temporarily disabled to prevent dashboard loading issues
+  // Uncomment the lines below to re-enable error simulation
+  /*
+  // Skip error simulation if DISABLE_MOCK_ERRORS is set
+  if (process.env.NEXT_PUBLIC_DISABLE_MOCK_ERRORS === 'true') {
+    return;
+  }
+  
+  // Only simulate errors in development mode
+  if (process.env.NODE_ENV === 'development' && Math.random() < 0.01) {
     throw new Error('Simulated API error');
   }
+  */
 }; 

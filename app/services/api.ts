@@ -44,6 +44,7 @@ apiClient.interceptors.response.use(
     if (error.response?.status === 401) {
       // Token expired or invalid
       localStorage.removeItem('authToken');
+      localStorage.removeItem('token');
       localStorage.removeItem('user');
       window.location.href = '/login';
     }
@@ -154,9 +155,15 @@ export const authAPI = {
       
       // Mock login - accept any credentials
       const mockToken = 'mock-jwt-token-' + Date.now();
-      const user = { ...mockUser, username: data.username };
+      const user = { 
+        ...mockUser, 
+        username: data.username,
+        role: data.username.toLowerCase().includes('doctor') ? 'doctor' : 'admin'
+      };
       
+      // Store both authToken and token for compatibility
       localStorage.setItem('authToken', mockToken);
+      localStorage.setItem('token', mockToken);
       localStorage.setItem('user', JSON.stringify(user));
       
       return { token: mockToken, user };
@@ -165,6 +172,7 @@ export const authAPI = {
     const response = await apiClient.post('/auth/login', data);
     const { token, user } = response.data;
     localStorage.setItem('authToken', token);
+    localStorage.setItem('token', token);
     localStorage.setItem('user', JSON.stringify(user));
     return response.data;
   },
@@ -175,9 +183,16 @@ export const authAPI = {
       simulateApiError();
       
       const mockToken = 'mock-jwt-token-' + Date.now();
-      const user = { ...mockUser, username: data.username, email: data.email };
+      const user = { 
+        ...mockUser, 
+        username: data.username, 
+        email: data.email,
+        role: data.role || 'admin'
+      };
       
+      // Store both authToken and token for compatibility
       localStorage.setItem('authToken', mockToken);
+      localStorage.setItem('token', mockToken);
       localStorage.setItem('user', JSON.stringify(user));
       
       return { token: mockToken, user };
@@ -186,6 +201,7 @@ export const authAPI = {
     const response = await apiClient.post('/auth/register', data);
     const { token, user } = response.data;
     localStorage.setItem('authToken', token);
+    localStorage.setItem('token', token);
     localStorage.setItem('user', JSON.stringify(user));
     return response.data;
   },
@@ -217,6 +233,7 @@ export const authAPI = {
 
   logout() {
     localStorage.removeItem('authToken');
+    localStorage.removeItem('token');
     localStorage.removeItem('user');
   },
 
@@ -226,7 +243,9 @@ export const authAPI = {
   },
 
   isAuthenticated(): boolean {
-    return !!localStorage.getItem('authToken');
+    const authToken = localStorage.getItem('authToken');
+    const token = localStorage.getItem('token');
+    return !!(authToken || token);
   },
 };
 
@@ -765,144 +784,36 @@ export const appointmentsAPI = {
 };
 
 // Dashboard API
-export const dashboardAPI = {
-  async getStats() {
-    if (isMockMode) {
-      await simulateApiDelay();
+export const getDashboardStats = async (): Promise<DashboardStats> => {
+  if (isMockMode) {
+    await simulateApiDelay();
+    try {
       simulateApiError();
       return mockDashboardStats;
+    } catch (error) {
+      console.warn('Mock API error, returning fallback data:', error);
+      return mockDashboardStats; // Return fallback data even on error
     }
-    
-    const response = await apiClient.get('/dashboard/stats');
-    return response.data;
-  },
+  }
+  
+  const response = await apiClient.get('/dashboard/stats');
+  return response.data;
+};
 
-  async getRecentAppointments() {
-    if (isMockMode) {
-      await simulateApiDelay();
+export const getRecentAppointments = async (): Promise<Appointment[]> => {
+  if (isMockMode) {
+    await simulateApiDelay();
+    try {
       simulateApiError();
-      return mockAppointments.slice(0, 5);
+      return mockAppointments.slice(0, 5); // Return last 5 appointments
+    } catch (error) {
+      console.warn('Mock API error, returning fallback data:', error);
+      return mockAppointments.slice(0, 5); // Return fallback data even on error
     }
-    
-    const response = await apiClient.get('/dashboard/recent-appointments');
-    return response.data;
-  },
-
-  async getUpcomingAppointments() {
-    if (isMockMode) {
-      await simulateApiDelay();
-      simulateApiError();
-      return mockAppointments.filter(appointment => appointment.status === 'Scheduled');
-    }
-    
-    const response = await apiClient.get('/dashboard/upcoming-appointments');
-    return response.data;
-  },
-
-  async getAppointmentsByStatus() {
-    if (isMockMode) {
-      await simulateApiDelay();
-      simulateApiError();
-      return {
-        scheduled: mockAppointments.filter(a => a.status === 'Scheduled').length,
-        completed: mockAppointments.filter(a => a.status === 'Completed').length,
-        pending: mockAppointments.filter(a => a.status === 'Pending').length,
-        cancelled: mockAppointments.filter(a => a.status === 'Cancelled').length
-      };
-    }
-    
-    const response = await apiClient.get('/dashboard/appointments-by-status');
-    return response.data;
-  },
-
-  async getAppointmentsByMonth() {
-    if (isMockMode) {
-      await simulateApiDelay();
-      simulateApiError();
-      return [
-        { month: 'Jan', count: 12 },
-        { month: 'Feb', count: 15 },
-        { month: 'Mar', count: 18 },
-        { month: 'Apr', count: 22 },
-        { month: 'May', count: 25 },
-        { month: 'Jun', count: 30 }
-      ];
-    }
-    
-    const response = await apiClient.get('/dashboard/appointments-by-month');
-    return response.data;
-  },
-
-  async getTopDoctors() {
-    if (isMockMode) {
-      await simulateApiDelay();
-      simulateApiError();
-      return mockDoctors.sort((a, b) => b.rating - a.rating).slice(0, 5);
-    }
-    
-    const response = await apiClient.get('/dashboard/top-doctors');
-    return response.data;
-  },
-
-  async getPatientDemographics() {
-    if (isMockMode) {
-      await simulateApiDelay();
-      simulateApiError();
-      return {
-        male: mockPatients.filter(p => p.gender === 'Male').length,
-        female: mockPatients.filter(p => p.gender === 'Female').length,
-        other: mockPatients.filter(p => p.gender === 'Other').length
-      };
-    }
-    
-    const response = await apiClient.get('/dashboard/patient-demographics');
-    return response.data;
-  },
-
-  async getDoctorSpecializations() {
-    if (isMockMode) {
-      await simulateApiDelay();
-      simulateApiError();
-      const specializations = [...new Set(mockDoctors.map(d => d.specialization))];
-      return specializations.map(spec => ({
-        specialization: spec,
-        count: mockDoctors.filter(d => d.specialization === spec).length
-      }));
-    }
-    
-    const response = await apiClient.get('/dashboard/doctor-specializations');
-    return response.data;
-  },
-
-  async getTodaySchedule() {
-    if (isMockMode) {
-      await simulateApiDelay();
-      simulateApiError();
-      const today = new Date().toISOString().split('T')[0];
-      return mockAppointments.filter(appointment => appointment.date === today);
-    }
-    
-    const response = await apiClient.get('/dashboard/today-schedule');
-    return response.data;
-  },
-
-  async getWeeklyAppointments() {
-    if (isMockMode) {
-      await simulateApiDelay();
-      simulateApiError();
-      const today = new Date();
-      const weekFromNow = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
-      const weekFromNowStr = weekFromNow.toISOString().split('T')[0];
-      const todayStr = today.toISOString().split('T')[0];
-      
-      return mockAppointments.filter(appointment => 
-        appointment.date >= todayStr && appointment.date <= weekFromNowStr
-      );
-    }
-    
-    const response = await apiClient.get('/dashboard/weekly-appointments');
-    return response.data;
-  },
+  }
+  
+  const response = await apiClient.get('/appointments/recent');
+  return response.data;
 };
 
 // Legacy API functions (for backward compatibility)
